@@ -30,26 +30,72 @@ class Model(nn.Module):
         return x
     
     
+"""
+Returns probabilies for classes for a given input
+"""
+def get_probabilities(model, input):
+    model.eval()
+    output = model(input)
+    return tuple(output)
+    
 def load_model(path = "./model.pth",label_count=3):
     model = Model(label_count)
     model.load_state_dict(torch.load(path))
     return model
 
-def train_model(path="./model.pth",max_iterations=10,batch_size=16,label_count=3):
+"""
+Trains model and then saves it
+"""
+def train_model(path="./model.pth",max_iterations=10, num_data=10000):
     torch.manual_seed(0)
-    trainset,trainloader,testset,testloader=load_data.load_data()
+    trainset,trainloader,testset,testloader=load_data.load_data(num_data=num_data)
     model = Model()
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(),lr=0.001,momentum=0.9)
     
     for epoch in range(1,max_iterations+1):
+        epoch_loss = 0
+        epoch_correct_count = 0
+        #mini batch
         for data in trainloader:
             inputs,labels = data
             optimizer.zero_grad()
-            
             outputs = model(inputs)
-            print(outputs)
+            
+            loss = criterion(outputs,labels)
+            # Compute gradient of loss with respect to weights and biases
+            loss.backward() 
+            optimizer.step()
         
+            epoch_loss += loss.item()
+            
+            # Accuracy
+            _, predicted = torch.max(outputs,1)
+            epoch_correct_count += (predicted == labels).sum().item()
+            
+        print(f'Epoch {epoch} loss: {epoch_loss / len(trainloader.dataset)}')
+        print(f'Epoch {epoch} training accuracy: {epoch_correct_count/len(trainloader.dataset)}')
+    
+    # save the model
+    torch.save(model.state_dict(),path)
+    test_model(model,testloader,criterion)
         
+def test_model(model:nn.Module, testloader,criterion:nn.CrossEntropyLoss):
+    model.eval()
+    
+    test_loss=0
+    test_correct=0
+    for data in testloader:
+        inputs, labels = data
+        outputs = model(inputs)
+        loss = criterion(outputs,labels)
+        test_loss+=loss.item()
         
-train_model()
+        _, predicted = torch.max(outputs,1)
+        test_correct += (predicted == labels).sum().item()
+    
+    print("Testing loss:", test_loss/len(testloader.dataset))
+    print("Testing accuracy: ", test_correct/len(testloader.dataset))
+
+if __name__ == '__main__': 
+    train_model(max_iterations=15,num_data=10000)

@@ -11,27 +11,18 @@ label_data = {
     "bread":"./data/full_numpy_bitmap_bread.npy"
 }
 
-# dataset = np.load(label_data["apple"])
-# data = dataset[0]
-# print(data.shape)
 
 class QuickDrawDataset(Dataset):
     def __init__(self,data,labels,transform=None):
         # convert to torch tensor
-        if(isinstance(self.data,np.ndarray)):
-            self.data = torch.from_numpy(data)
-            self.labels = torch.from_numpy(labels)
-        if(isinstance(self.data,list)):
-            self.data = torch.FloatTensor(self.data)
-            # What happens if this is IntTensor
-            self.labels = torch.LongTensor(self.labels)
-        
+        self.data = torch.from_numpy(data).to(torch.float32)
+        self.labels = torch.from_numpy(labels).to(torch.long)
         self.transform = transform
         
     def __len__(self):
         return len(self.data)
     
-    def __get__(self,idx):
+    def __getitem__(self,idx):
         data = self.data[idx]
         label = self.labels[idx]
         # Apply existing transformations
@@ -39,7 +30,7 @@ class QuickDrawDataset(Dataset):
             data = self.transform(data)
         return data, label
         
-def load_data(num_data = 5000, batch_size=16):
+def load_data(num_data = 50000, batch_size=16):
     X = []
     y = []
     # Loop through datasets for the labels
@@ -56,10 +47,18 @@ def load_data(num_data = 5000, batch_size=16):
             X.append(data)
             y.append(label_idx)
             
+            
+    X = np.array(X)
+    y = np.array(y)
+    
     X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=.2,random_state=1,stratify=y)
-    trainset = QuickDrawDataset(X_train,y_train)
-    trainloader = DataLoader(trainset,batch_size=batch_size, shuffle=True, num_workers=2)
+    
+    # Add transformations here
+    
+    trainset = QuickDrawDataset(X_train, y_train)
     testset = QuickDrawDataset(X_test, y_test)
+    
+    trainloader = DataLoader(trainset,batch_size=batch_size, shuffle=True, num_workers=2)
     testloader = DataLoader(testset,batch_size=batch_size,shuffle=True,num_workers=2)
     
     return (trainset,trainloader,testset,testloader)
